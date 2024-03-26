@@ -987,6 +987,7 @@ bool OverlayDrawer::_DrawProfiler(const SmallVector<float>& effectTimings, uint3
 
 	ImGui::PushTextWrapPos();
 	ImGui::TextUnformatted(StrHelper::Concat("GPU: ", _hardwareInfo.gpuName).c_str());
+	ImGui::TextUnformatted(renderer.resolution.c_str());
 	const std::string& captureMethodStr = _GetResourceString(L"Overlay_Profiler_CaptureMethod");
 	ImGui::TextUnformatted(StrHelper::Concat(captureMethodStr.c_str(), ": ", renderer.FrameSource().Name()).c_str());
 	if (options.IsStatisticsForDynamicDetectionEnabled() &&
