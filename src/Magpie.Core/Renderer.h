@@ -53,6 +53,9 @@ public:
 
 	void StartProfile() noexcept;
 
+	// Captured source resolution text for overlay display
+	std::string resolution;
+
 	void StopProfile() noexcept;
 
 	bool IsCursorOnOverlayCaptionArea() const noexcept {
