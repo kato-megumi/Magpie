@@ -875,10 +875,6 @@ bool OverlayDrawer::_DrawUI(const SmallVector<float>& effectTimings, uint32_t fp
 		}
 	}
 
-#ifdef _DEBUG
-	ImGui::ShowDemoWindow();
-#endif
-
 	{
 		const float windowWidth = 310 * _dpiScale;
 		ImGui::SetNextWindowSizeConstraints(ImVec2(windowWidth, 0.0f), ImVec2(windowWidth, 500 * _dpiScale));
@@ -895,6 +891,7 @@ bool OverlayDrawer::_DrawUI(const SmallVector<float>& effectTimings, uint32_t fp
 
 	ImGui::PushTextWrapPos();
 	ImGui::TextUnformatted(StrHelper::Concat("GPU: ", _hardwareInfo.gpuName).c_str());
+	ImGui::TextUnformatted(renderer.resolution.c_str());
 	const std::string& captureMethodStr = _GetResourceString(L"Overlay_Profiler_CaptureMethod");
 	ImGui::TextUnformatted(StrHelper::Concat(captureMethodStr.c_str(), ": ", renderer.FrameSource().Name()).c_str());
 	if (options.IsStatisticsForDynamicDetectionEnabled() &&
