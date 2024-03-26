@@ -441,6 +441,7 @@ bool Renderer::_InitFrameSource() noexcept {
 	D3D11_TEXTURE2D_DESC desc;
 	_frameSource->GetOutput()->GetDesc(&desc);
 	Logger::Get().Info(fmt::format("捕获尺寸: {}x{}", desc.Width, desc.Height));
+	resolution = fmt::format("Source Resolution : {}x{}", desc.Width, desc.Height);
 
 	return true;
 }

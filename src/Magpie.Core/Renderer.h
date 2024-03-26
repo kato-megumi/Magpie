@@ -54,6 +54,8 @@ public:
 		return _effectInfos;
 	}
 
+	std::string resolution;
+
 private:
 	bool _CreateSwapChain() noexcept;
 
