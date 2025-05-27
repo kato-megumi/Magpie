@@ -19,6 +19,9 @@
 #include "MainWindow.h"
 #include "CandidateWindowItem.h"
 #include "CommonSharedConstants.h"
+#include <algorithm> // for std::transform
+#include <cwctype>
+
 
 using namespace ::Magpie;
 using namespace winrt;
@@ -30,6 +33,7 @@ using namespace Windows::UI::Xaml::Controls::Primitives;
 using namespace Windows::UI::Xaml::Input;
 using namespace Windows::UI::Xaml::Media::Animation;
 using namespace Windows::UI::Xaml::Media::Imaging;
+using namespace Windows::UI::Xaml::Controls;
 
 namespace winrt::Magpie::implementation {
 
@@ -510,6 +514,90 @@ void RootPage::_UpdateNewProfileNameTextBox(bool fillWithTitle) {
 	textBox.Select(size, 0);
 	// 如果文本太长，这个调用可以使视口移到光标位置
 	textBox.Focus(FocusState::Programmatic);
+}
+
+void RootPage::ProfileSearchBox_QuerySubmitted(IInspectable const& , AutoSuggestBoxQuerySubmittedEventArgs const& ) {
+    auto query = ProfileSearchBox().Text();
+    FilterProfiles(query);
+}
+
+void RootPage::ProfileSearchBox_TextChanged(IInspectable const& , AutoSuggestBoxTextChangedEventArgs const& args) {
+    if (args.Reason() == AutoSuggestionBoxTextChangeReason::UserInput) {
+        auto query = ProfileSearchBox().Text();
+        FilterProfiles(query);
+    }
+}
+
+void RootPage::FilterProfiles(hstring const& query) {
+    auto navMenuItems = RootNavigationView().MenuItems();
+    navMenuItems.Clear();
+
+    // Always add static items first
+    // Home
+    {
+        MUXC::NavigationViewItem homeItem;
+        homeItem.Content(box_value(L"Home"));
+        homeItem.Tag(box_value(L"Home"));
+        FontIcon homeIcon;
+        homeIcon.Glyph(L"\xE80F");
+        homeItem.Icon(homeIcon);
+        navMenuItems.Append(homeItem);
+    }
+    // ScalingModes
+    {
+        MUXC::NavigationViewItem scalingItem;
+        scalingItem.Content(box_value(L"Scaling Modes"));
+        scalingItem.Tag(box_value(L"ScalingModes"));
+        FontIcon scalingIcon;
+        scalingIcon.Glyph(L"\xE740");
+        scalingItem.Icon(scalingIcon);
+        navMenuItems.Append(scalingItem);
+    }
+    // Profiles Header
+    {
+        MUXC::NavigationViewItemHeader profilesHeader;
+        profilesHeader.Content(box_value(L"Profiles"));
+        navMenuItems.Append(profilesHeader);
+    }
+    // Defaults
+    {
+        MUXC::NavigationViewItem defaultsItem;
+        defaultsItem.Content(box_value(L"Defaults"));
+        FontIcon defaultsIcon;
+        defaultsIcon.Glyph(L"\xE81E");
+        defaultsItem.Icon(defaultsIcon);
+        navMenuItems.Append(defaultsItem);
+    }
+
+    // Now add filtered profiles
+    const auto& profiles = AppSettings::Get().Profiles();
+    std::wstring q = query.c_str();
+    std::transform(q.begin(), q.end(), q.begin(), [](wchar_t c) { return std::towlower(c); });
+
+    for (const auto& profile : profiles) {
+        // Lowercase name and pathRule
+        std::wstring name = profile.name;
+        std::wstring path = profile.pathRule;
+        std::transform(name.begin(), name.end(), name.begin(), [](wchar_t c) { return std::towlower(c); });
+        std::transform(path.begin(), path.end(), path.begin(), [](wchar_t c) { return std::towlower(c); });
+
+        // Match if query is in name or pathRule
+        if (q.empty() ||
+            name.find(q) != std::wstring::npos ||
+            path.find(q) != std::wstring::npos) {
+            MUXC::NavigationViewItem item;
+            item.Content(box_value(profile.name));
+            item.Icon(FontIcon());
+            _LoadIcon(item, profile);
+            navMenuItems.Append(item);
+        }
+    }
+
+    // Add the "New Profile" item at the end
+    {
+        MUXC::NavigationViewItem newProfileItem = NewProfileNavigationViewItem();
+        navMenuItems.Append(newProfileItem);
+    }
 }
 
 }
