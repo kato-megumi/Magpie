@@ -152,8 +152,17 @@
 					</FlyoutBase.AttachedFlyout>
 				</muxc:NavigationViewItem>
 			</muxc:NavigationView.MenuItems>
-			<muxc:NavigationView.FooterMenuItems>
-				<muxc:NavigationViewItem x:Uid="Root_About"
+            
+            <muxc:NavigationView.PaneHeader>
+                <AutoSuggestBox x:Name="ProfileSearchBox"
+                        PlaceholderText="Search profiles"
+                        QuerySubmitted="ProfileSearchBox_QuerySubmitted"
+                        TextChanged="ProfileSearchBox_TextChanged"
+                        Margin="8,40,8,-32"/>
+            </muxc:NavigationView.PaneHeader>
+
+            <muxc:NavigationView.FooterMenuItems>
+                <muxc:NavigationViewItem x:Uid="Root_About"
 				                         Tag="About">
 					<muxc:NavigationViewItem.Icon>
 						<FontIcon Glyph="&#xE946;" />

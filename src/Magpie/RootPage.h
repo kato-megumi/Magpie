@@ -43,6 +43,10 @@ struct RootPage : RootPageT<RootPage> {
 
 	void NavigateToAboutPage();
 
+	void ProfileSearchBox_QuerySubmitted(Windows::Foundation::IInspectable const& sender, Windows::UI::Xaml::Controls::AutoSuggestBoxQuerySubmittedEventArgs const& args);
+	void ProfileSearchBox_TextChanged(Windows::Foundation::IInspectable const& sender, Windows::UI::Xaml::Controls::AutoSuggestBoxTextChangedEventArgs const& args);
+	void FilterProfiles(hstring const& query);
+
 	TitleBarControl& TitleBar();
 
 private:
