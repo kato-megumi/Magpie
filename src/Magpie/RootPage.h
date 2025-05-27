@@ -55,6 +55,10 @@ struct RootPage : RootPageT<RootPage> {
 
 	void NavigateToAboutPage();
 
+	void ProfileSearchBox_QuerySubmitted(Windows::Foundation::IInspectable const& sender, Windows::UI::Xaml::Controls::AutoSuggestBoxQuerySubmittedEventArgs const& args);
+	void ProfileSearchBox_TextChanged(Windows::Foundation::IInspectable const& sender, Windows::UI::Xaml::Controls::AutoSuggestBoxTextChangedEventArgs const& args);
+	void FilterProfiles(hstring const& query);
+
 	TitleBarControl& TitleBar();
 
 private:
@@ -72,9 +76,11 @@ private:
 
 	void _ProfileService_ProfileReordered(uint32_t profileIdx, bool isMoveUp);
 
+	void _ProfileService_ProfileMoveToTop(uint32_t profileIdx);
+
 	void _UpdateNewProfileNameTextBox(bool fillWithTitle);
 
-	MUXC::NavigationViewItem _CreateProfileNavigationViewItem(const ::Magpie::Profile& profile);
+	MUXC::NavigationViewItem _CreateProfileNavigationViewItem(const ::Magpie::Profile& profile, int profileIdx = -1);
 
 	::Magpie::MultithreadEvent<bool>::EventRevoker _appThemeChangedRevoker;
 	::Magpie::Event<uint32_t>::EventRevoker _dpiChangedRevoker;
@@ -87,6 +93,7 @@ private:
 	::Magpie::Event<uint32_t>::EventRevoker _profileRenamedRevoker;
 	::Magpie::Event<uint32_t>::EventRevoker _profileRemovedRevoker;
 	::Magpie::Event<uint32_t, bool>::EventRevoker _profileMovedRevoker;
+	::Magpie::Event<uint32_t>::EventRevoker _profileMovedToTopRevoker;
 	Primitives::FlyoutBase::Opening_revoker _contextFlyoutOpeningRevoker;
 };
 
