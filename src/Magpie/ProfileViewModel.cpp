@@ -214,7 +214,7 @@ static void LaunchWin32App(const Profile& profile) noexcept {
 	Win32Helper::ShellOpen(path.c_str(), profile.launchParameters.c_str());
 }
 
-void ProfileViewModel::Launch() const noexcept {
+void ProfileViewModel::Launch() noexcept {
 	if (!_isProgramExist) {
 		return;
 	}

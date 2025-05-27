@@ -31,7 +31,7 @@ struct ProfileViewModel : ProfileViewModelT<ProfileViewModel>,
 
 	hstring Name() const noexcept;
 
-	void Launch() const noexcept;
+	void Launch() noexcept;
 
 	hstring RenameText() const noexcept {
 		return _renameText;

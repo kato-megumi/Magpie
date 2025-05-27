@@ -17,6 +17,8 @@
 #include "TitleBarControl.h"
 #include "Win32Helper.h"
 #include "XamlHelper.h"
+#include <algorithm> // for std::transform
+#include <cwctype>
 
 using namespace ::Magpie;
 using namespace winrt;
@@ -28,10 +30,12 @@ using namespace Windows::UI::Xaml::Controls::Primitives;
 using namespace Windows::UI::Xaml::Input;
 using namespace Windows::UI::Xaml::Media::Animation;
 using namespace Windows::UI::Xaml::Media::Imaging;
+using namespace Windows::UI::Xaml::Controls;
 
 namespace winrt::Magpie::implementation {
 
-static constexpr uint32_t FIRST_PROFILE_ITEM_IDX = 4;
+// NewProfile is now at index 4, profiles start at index 5
+static constexpr uint32_t FIRST_PROFILE_ITEM_IDX = 5;
 
 RootPage::RootPage() {
 	// 设置 Language 属性帮助 XAML 选择合适的字体，比如繁体中文使用 Microsoft JhengHei UI，
@@ -69,16 +73,21 @@ void RootPage::InitializeComponent() {
 		auto_revoke, std::bind_front(&RootPage::_ProfileService_ProfileRemoved, this));
 	_profileMovedRevoker = profileService.ProfileMoved(
 		auto_revoke, std::bind_front(&RootPage::_ProfileService_ProfileReordered, this));
+	_profileMovedToTopRevoker = profileService.ProfileMovedToTop(
+		auto_revoke, std::bind_front(&RootPage::_ProfileService_ProfileMoveToTop, this));
 
 	IVector<IInspectable> navMenuItems = RootNavigationView().MenuItems();
-	for (const Profile& profile : AppSettings::Get().Profiles()) {
+	const auto& profiles = AppSettings::Get().Profiles();
+	for (uint32_t i = 0; i < profiles.size(); ++i) {
 		MUXC::NavigationViewItem item;
-		item.Content(box_value(profile.name));
+		item.Content(box_value(profiles[i].name));
+		// Store profile index in Tag for reliable navigation
+		item.Tag(box_value((int)i));
 		// 用于占位
 		item.Icon(FontIcon());
-		_LoadIcon(item, profile);
+		_LoadIcon(item, profiles[i]);
 
-		navMenuItems.InsertAt(navMenuItems.Size() - 1, item);
+		navMenuItems.Append(item);
 	}
 }
 
@@ -135,7 +144,18 @@ void RootPage::NavigationView_SelectionChanged(
 			return;
 		}
 
-		IInspectable tag = selectedItem.try_as<MUXC::NavigationViewItem>().Tag();
+		// Prefer Tag when it's a profile index (for filtered results); otherwise treat Tag as string for static pages.
+		auto navItem = selectedItem.as<MUXC::NavigationViewItem>();
+		IInspectable tag = navItem.Tag();
+		if (tag) {
+			try {
+				int profileIdx = unbox_value<int>(tag);
+				contentFrame.Navigate(xaml_typename<ProfilePage>(), box_value(profileIdx));
+				return;
+			} catch (...) {
+				// Not an int, continue to string-based navigation below.
+			}
+		}
 		if (tag) {
 			hstring tagStr = unbox_value<hstring>(tag);
 			Interop::TypeName typeName;
@@ -151,7 +171,7 @@ void RootPage::NavigationView_SelectionChanged(
 
 			contentFrame.Navigate(typeName);
 		} else {
-			// 缩放配置页面
+			// Fallback: if no tag then compute index based on static offset.
 			MUXC::NavigationView nv = RootNavigationView();
 			uint32_t index;
 			if (nv.MenuItems().IndexOf(nv.SelectedItem(), index)) {
@@ -439,12 +459,15 @@ void RootPage::_UpdateIcons(bool skipDesktop) {
 void RootPage::_ProfileService_ProfileAdded(Profile& profile) {
 	MUXC::NavigationViewItem item;
 	item.Content(box_value(profile.name));
+	// Store profile index in Tag - new profile is added at the end
+	int newIdx = (int)AppSettings::Get().Profiles().size() - 1;
+	item.Tag(box_value(newIdx));
 	// 用于占位
 	item.Icon(FontIcon());
 	_LoadIcon(item, profile);
 
 	IVector<IInspectable> navMenuItems = RootNavigationView().MenuItems();
-	navMenuItems.InsertAt(navMenuItems.Size() - 1, item);
+	navMenuItems.Append(item);
 	RootNavigationView().SelectedItem(item);
 }
 
@@ -458,11 +481,33 @@ void RootPage::_ProfileService_ProfileRenamed(uint32_t idx) {
 void RootPage::_ProfileService_ProfileRemoved(uint32_t idx) {
 	MUXC::NavigationView nv = RootNavigationView();
 	IVector<IInspectable> menuItems = nv.MenuItems();
-	nv.SelectedItem(menuItems.GetAt(FIRST_PROFILE_ITEM_IDX - 1));
+	nv.SelectedItem(menuItems.GetAt(FIRST_PROFILE_ITEM_IDX - 2));
+
+	hstring searchText = ProfileSearchBox().Text();
+	if (searchText.size() > 0) {
+		FilterProfiles(searchText);
+		return;
+	}
+
 	menuItems.RemoveAt(FIRST_PROFILE_ITEM_IDX + idx);
+
+	// Update Tags for all profiles after the removed one
+	uint32_t profileCount = (uint32_t)AppSettings::Get().Profiles().size();
+	for (uint32_t i = idx; i < profileCount; ++i) {
+		auto navItem = menuItems.GetAt(FIRST_PROFILE_ITEM_IDX + i).try_as<MUXC::NavigationViewItem>();
+		if (navItem) {
+			navItem.Tag(box_value((int)i));
+		}
+	}
 }
 
 void RootPage::_ProfileService_ProfileReordered(uint32_t profileIdx, bool isMoveUp) {
+	hstring searchText = ProfileSearchBox().Text();
+	if (searchText.size() > 0) {
+		FilterProfiles(searchText);
+		return;
+	}
+
 	IVector<IInspectable> menuItems = RootNavigationView().MenuItems();
 
 	uint32_t curIdx = FIRST_PROFILE_ITEM_IDX + profileIdx;
@@ -471,6 +516,45 @@ void RootPage::_ProfileService_ProfileReordered(uint32_t profileIdx, bool isMove
 	IInspectable otherItem = menuItems.GetAt(otherIdx);
 	menuItems.RemoveAt(otherIdx);
 	menuItems.InsertAt(curIdx, otherItem);
+
+	// Update Tags for the two swapped items
+	// After RemoveAt/InsertAt, items have swapped positions:
+	// - curIdx now contains the item that was at otherIdx
+	// - otherIdx now contains the item that was at curIdx
+	uint32_t otherProfileIdx = isMoveUp ? profileIdx - 1 : profileIdx + 1;
+	auto curNavItem = menuItems.GetAt(curIdx).try_as<MUXC::NavigationViewItem>();
+	auto otherNavItem = menuItems.GetAt(otherIdx).try_as<MUXC::NavigationViewItem>();
+	if (curNavItem) {
+		curNavItem.Tag(box_value((int)profileIdx));  // Was at otherIdx, now represents profileIdx
+	}
+	if (otherNavItem) {
+		otherNavItem.Tag(box_value((int)otherProfileIdx));  // Was at curIdx, now represents otherProfileIdx
+	}
+}
+
+void RootPage::_ProfileService_ProfileMoveToTop(uint32_t profileIdx) {
+	hstring searchText = ProfileSearchBox().Text();
+	if (searchText.size() > 0) {
+		FilterProfiles(searchText);
+		return;
+	}
+
+	IVector<IInspectable> menuItems = RootNavigationView().MenuItems();
+
+	uint32_t curIdx = FIRST_PROFILE_ITEM_IDX + profileIdx;
+	IInspectable curItem = menuItems.GetAt(curIdx);
+	menuItems.RemoveAt(curIdx);
+	menuItems.InsertAt(FIRST_PROFILE_ITEM_IDX, curItem);
+
+	// Update Tags for all affected profiles (from 0 to profileIdx)
+	for (uint32_t i = 0; i <= profileIdx; ++i) {
+		auto navItem = menuItems.GetAt(FIRST_PROFILE_ITEM_IDX + i).try_as<MUXC::NavigationViewItem>();
+		if (navItem) {
+			navItem.Tag(box_value((int)i));
+		}
+	}
+
+	RootNavigationView().SelectedItem(RootNavigationView().MenuItems().GetAt(FIRST_PROFILE_ITEM_IDX));
 }
 
 void RootPage::_UpdateNewProfileNameTextBox(bool fillWithTitle) {
@@ -495,6 +579,105 @@ void RootPage::_UpdateNewProfileNameTextBox(bool fillWithTitle) {
 	textBox.Select(size, 0);
 	// 如果文本太长，这个调用可以使视口移到光标位置
 	textBox.Focus(FocusState::Programmatic);
+}
+
+void RootPage::ProfileSearchBox_QuerySubmitted(IInspectable const& , AutoSuggestBoxQuerySubmittedEventArgs const& ) {
+    auto query = ProfileSearchBox().Text();
+    FilterProfiles(query);
+}
+
+void RootPage::ProfileSearchBox_TextChanged(IInspectable const& , AutoSuggestBoxTextChangedEventArgs const& args) {
+    if (args.Reason() == AutoSuggestionBoxTextChangeReason::UserInput) {
+        auto query = ProfileSearchBox().Text();
+        FilterProfiles(query);
+    }
+}
+
+void RootPage::FilterProfiles(hstring const& query) {
+    auto navMenuItems = RootNavigationView().MenuItems();
+    navMenuItems.Clear();
+
+    // Always add static items first
+    // Home
+    {
+        MUXC::NavigationViewItem homeItem;
+        homeItem.Content(box_value(L"Home"));
+        homeItem.Tag(box_value(L"Home"));
+        FontIcon homeIcon;
+        homeIcon.Glyph(L"\xE80F");
+        homeItem.Icon(homeIcon);
+        navMenuItems.Append(homeItem);
+    }
+    // ScalingModes
+    {
+        MUXC::NavigationViewItem scalingItem;
+        scalingItem.Content(box_value(L"Scaling Modes"));
+        scalingItem.Tag(box_value(L"ScalingModes"));
+        FontIcon scalingIcon;
+        scalingIcon.Glyph(L"\xE740");
+        scalingItem.Icon(scalingIcon);
+        navMenuItems.Append(scalingItem);
+    }
+    // Profiles Header
+    {
+        MUXC::NavigationViewItemHeader profilesHeader;
+        profilesHeader.Content(box_value(L"Profiles"));
+        navMenuItems.Append(profilesHeader);
+    }
+    // Defaults
+    {
+        MUXC::NavigationViewItem defaultsItem;
+        defaultsItem.Content(box_value(L"Defaults"));
+        FontIcon defaultsIcon;
+        defaultsIcon.Glyph(L"\xE81E");
+        defaultsItem.Icon(defaultsIcon);
+        navMenuItems.Append(defaultsItem);
+    }
+
+    // Add the "New Profile" item before profiles (defined in XAML with flyout)
+    {
+        navMenuItems.Append(NewProfileNavigationViewItem());
+    }
+
+    // Now add filtered profiles
+    const auto& profiles = AppSettings::Get().Profiles();
+    std::wstring q = query.c_str();
+    std::transform(q.begin(), q.end(), q.begin(), [](wchar_t c) { return std::towlower(c); });
+
+    for (size_t i = 0; i < profiles.size(); ++i)
+    {
+        // Lowercase name and pathRule for match check
+        std::wstring name = profiles[i].name;
+        std::wstring path = profiles[i].pathRule;
+        std::transform(name.begin(), name.end(), name.begin(), [](wchar_t c) { return std::towlower(c); });
+        std::transform(path.begin(), path.end(), path.begin(), [](wchar_t c) { return std::towlower(c); });
+
+        // Match if query is in name or pathRule
+        if (q.empty() ||
+            name.find(q) != std::wstring::npos ||
+            path.find(q) != std::wstring::npos)
+        {
+            MUXC::NavigationViewItem item;
+            item.Content(box_value(profiles[i].name));
+            item.Icon(FontIcon());
+            // Store the original profile index (as int) in the Tag.
+            item.Tag(box_value((int)i));
+            _LoadIcon(item, profiles[i]);
+            navMenuItems.Append(item);
+        }
+    }
+
+    // Ensure a valid selection so ProfilePage has data.
+    // Menu structure: 0=Home, 1=ScalingModes, 2=Header, 3=Defaults, 4=NewProfile, 5..N=profiles
+    // So first profile is at index 5
+    if (navMenuItems.Size() > 5)  // More than 5 static items means we have profiles
+    {
+        RootNavigationView().SelectedItem(navMenuItems.GetAt(5));  // First profile
+    }
+    else if (navMenuItems.Size() >= 4)
+    {
+        RootNavigationView().SelectedItem(navMenuItems.GetAt(3)); // Defaults
+    }
 }
 
 }

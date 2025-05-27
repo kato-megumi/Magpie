@@ -501,6 +501,18 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 	}
 
 	_hwndCurSrc = hWnd;
+
+	// Reorder profile: find and move the profile to first if not already.
+	{
+		std::vector<Profile>& profiles = AppSettings::Get().Profiles();
+		for (uint32_t i = 0; i < profiles.size(); i++) {
+			if (profiles[i].name == profile.name && profiles[i].pathRule == profile.pathRule && i != 0) {
+				ProfileService::Get().MoveProfileToFirst(i);
+				break;
+			}
+		}
+	}
+
 	return ScalingError::NoError;
 }
 
