@@ -314,6 +314,17 @@ void ScalingService::_ScalingRuntime_IsRunningChanged(bool isRunning, ScalingErr
 }
 
 void ScalingService::_StartScale(HWND hWnd, const Profile& profile) {
+	// Reorder profile: find and move the profile to first if not already.
+	{
+		std::vector<Profile>& profiles = AppSettings::Get().Profiles();
+		for (uint32_t i = 0; i < profiles.size(); i++) {
+			if (&profiles[i] == &profile && i != 0) {
+				ProfileService::Get().MoveProfileToFirst(i);
+				break;
+			}
+		}
+	}
+
 	if (profile.scalingMode < 0) {
 		ShowError(hWnd, ScalingError::InvalidScalingMode);
 		return;

@@ -75,6 +75,8 @@ void RootPage::InitializeComponent() {
 		auto_revoke, std::bind_front(&RootPage::_ProfileService_ProfileRemoved, this));
 	_profileMovedRevoker = profileService.ProfileMoved(
 		auto_revoke, std::bind_front(&RootPage::_ProfileService_ProfileReordered, this));
+	_profileMovedToTopRevoker = profileService.ProfileMovedToTop(
+		auto_revoke, std::bind_front(&RootPage::_ProfileService_ProfileMoveToTop, this));
 
 	const Win32Helper::OSVersion& osVersion = Win32Helper::GetOSVersion();
 	if (osVersion.Is22H2OrNewer()) {
@@ -490,6 +492,15 @@ void RootPage::_ProfileService_ProfileReordered(uint32_t profileIdx, bool isMove
 	IInspectable otherItem = menuItems.GetAt(otherIdx);
 	menuItems.RemoveAt(otherIdx);
 	menuItems.InsertAt(curIdx, otherItem);
+}
+
+void RootPage::_ProfileService_ProfileMoveToTop(uint32_t profileIdx) {
+	IVector<IInspectable> menuItems = RootNavigationView().MenuItems();
+
+	uint32_t curIdx = FIRST_PROFILE_ITEM_IDX + profileIdx;
+	IInspectable curItem = menuItems.GetAt(curIdx);
+	menuItems.RemoveAt(curIdx);
+	menuItems.InsertAt(FIRST_PROFILE_ITEM_IDX, curItem);
 }
 
 void RootPage::_UpdateNewProfileNameTextBox(bool fillWithTitle) {

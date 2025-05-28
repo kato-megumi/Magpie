@@ -203,7 +203,7 @@ static void LaunchWin32App(const Profile& profile) noexcept {
 	Win32Helper::ShellOpen(path.c_str(), profile.launchParameters.c_str());
 }
 
-void ProfileViewModel::Launch() const noexcept {
+void ProfileViewModel::Launch() noexcept {
 	if (!_isProgramExist) {
 		return;
 	}
@@ -212,6 +212,14 @@ void ProfileViewModel::Launch() const noexcept {
 		LaunchPackagedApp(*_data);
 	} else {
 		LaunchWin32App(*_data);
+	}
+
+	// Reorder launched profile to first position if not default.
+	if (IsNotDefaultProfile() && _index != 0) {
+		ProfileService& ps = ProfileService::Get();
+		ps.MoveProfileToFirst(_index);
+		_index = 0;
+		_data = &ps.GetProfile(0);
 	}
 }
 
