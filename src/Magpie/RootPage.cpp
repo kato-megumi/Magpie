@@ -154,7 +154,21 @@ void RootPage::NavigationView_SelectionChanged(
 			return;
 		}
 
-		IInspectable tag = selectedItem.as<MUXC::NavigationViewItem>().Tag();
+		// Check if the selected item has a numeric Tag representing a profile index
+		auto navItem = selectedItem.as<MUXC::NavigationViewItem>();
+		if (navItem.Tag()) {
+			try {
+				int profileIdx = unbox_value<int>(navItem.Tag());
+				// Navigate using the profile index stored from the filtered list.
+				contentFrame.Navigate(xaml_typename<ProfilePage>(), box_value(profileIdx));
+				return;
+			} catch (...) {
+				// If Tag is not an int, fall through and handle as before.
+			}
+		}
+
+		// For static items based on string tag.
+		IInspectable tag = navItem.Tag();
 		if (tag) {
 			hstring tagStr = unbox_value<hstring>(tag);
 			Interop::TypeName typeName;
@@ -170,7 +184,7 @@ void RootPage::NavigationView_SelectionChanged(
 
 			contentFrame.Navigate(typeName);
 		} else {
-			// 缩放配置页面
+			// Fallback: if no tag then compute index based on static offset.
 			MUXC::NavigationView nv = RootNavigationView();
 			uint32_t index;
 			if (nv.MenuItems().IndexOf(nv.SelectedItem(), index)) {
@@ -484,6 +498,12 @@ void RootPage::_ProfileService_ProfileRemoved(uint32_t idx) {
 }
 
 void RootPage::_ProfileService_ProfileReordered(uint32_t profileIdx, bool isMoveUp) {
+	hstring searchText = ProfileSearchBox().Text();
+	if (searchText.size() > 0) {
+		FilterProfiles(searchText);
+		return;
+	}
+
 	IVector<IInspectable> menuItems = RootNavigationView().MenuItems();
 
 	uint32_t curIdx = FIRST_PROFILE_ITEM_IDX + profileIdx;
@@ -495,6 +515,12 @@ void RootPage::_ProfileService_ProfileReordered(uint32_t profileIdx, bool isMove
 }
 
 void RootPage::_ProfileService_ProfileMoveToTop(uint32_t profileIdx) {
+	hstring searchText = ProfileSearchBox().Text();
+	if (searchText.size() > 0) {
+		FilterProfiles(searchText);
+		return;
+	}
+
 	IVector<IInspectable> menuItems = RootNavigationView().MenuItems();
 
 	uint32_t curIdx = FIRST_PROFILE_ITEM_IDX + profileIdx;
@@ -585,21 +611,25 @@ void RootPage::FilterProfiles(hstring const& query) {
     std::wstring q = query.c_str();
     std::transform(q.begin(), q.end(), q.begin(), [](wchar_t c) { return std::towlower(c); });
 
-    for (const auto& profile : profiles) {
-        // Lowercase name and pathRule
-        std::wstring name = profile.name;
-        std::wstring path = profile.pathRule;
+    for (size_t i = 0; i < profiles.size(); ++i)
+    {
+        // Lowercase name and pathRule for match check
+        std::wstring name = profiles[i].name;
+        std::wstring path = profiles[i].pathRule;
         std::transform(name.begin(), name.end(), name.begin(), [](wchar_t c) { return std::towlower(c); });
         std::transform(path.begin(), path.end(), path.begin(), [](wchar_t c) { return std::towlower(c); });
 
         // Match if query is in name or pathRule
         if (q.empty() ||
             name.find(q) != std::wstring::npos ||
-            path.find(q) != std::wstring::npos) {
+            path.find(q) != std::wstring::npos)
+        {
             MUXC::NavigationViewItem item;
-            item.Content(box_value(profile.name));
+            item.Content(box_value(profiles[i].name));
             item.Icon(FontIcon());
-            _LoadIcon(item, profile);
+            // Store the original profile index (as int) in the Tag.
+            item.Tag(box_value((int)i));
+            _LoadIcon(item, profiles[i]);
             navMenuItems.Append(item);
         }
     }
@@ -608,6 +638,16 @@ void RootPage::FilterProfiles(hstring const& query) {
     {
         MUXC::NavigationViewItem newProfileItem = NewProfileNavigationViewItem();
         navMenuItems.Append(newProfileItem);
+    }
+
+    // Ensure a valid selection so ProfilePage has data.
+    if (navMenuItems.Size() > 4)
+    {
+        RootNavigationView().SelectedItem(navMenuItems.GetAt(4));
+    }
+    else if (navMenuItems.Size() >= 4)
+    {
+        RootNavigationView().SelectedItem(navMenuItems.GetAt(3)); // Defaults
     }
 }
 
