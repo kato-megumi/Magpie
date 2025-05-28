@@ -26,6 +26,9 @@ public:
 
 	bool MoveProfile(uint32_t profileIdx, bool isMoveUp);
 
+    // New API to move a profile to the first position.
+    bool MoveProfileToFirst(uint32_t profileIdx);
+
 	const Profile* GetProfileForWindow(HWND hWnd, bool forAutoScale) noexcept;
 
 	Profile& DefaultProfile() noexcept;
@@ -38,6 +41,7 @@ public:
 	Event<uint32_t> ProfileRenamed;
 	Event<uint32_t> ProfileRemoved;
 	Event<uint32_t, bool> ProfileMoved;
+	Event<uint32_t> ProfileMovedToTop;
 
 private:
 	ProfileService() = default;

@@ -189,6 +189,18 @@ bool ProfileService::MoveProfile(uint32_t profileIdx, bool isMoveUp) {
 	return true;
 }
 
+bool ProfileService::MoveProfileToFirst(uint32_t profileIdx) {
+    std::vector<Profile>& profiles = AppSettings::Get().Profiles();
+    if (profileIdx == 0 || profileIdx >= profiles.size())
+        return false;
+    Profile profile = std::move(profiles[profileIdx]);
+    profiles.erase(profiles.begin() + profileIdx);
+    profiles.insert(profiles.begin(), std::move(profile));
+	ProfileMovedToTop.Invoke(profileIdx);
+    AppSettings::Get().SaveAsync();
+    return true;
+}
+
 static bool AnyAutoScaleProfile(const std::vector<Profile>& profiles) noexcept {
 	for (const Profile& profile : profiles) {
 		if (profile.isAutoScale) {
