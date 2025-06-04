@@ -527,6 +527,8 @@ void RootPage::_ProfileService_ProfileMoveToTop(uint32_t profileIdx) {
 	IInspectable curItem = menuItems.GetAt(curIdx);
 	menuItems.RemoveAt(curIdx);
 	menuItems.InsertAt(FIRST_PROFILE_ITEM_IDX, curItem);
+
+	RootNavigationView().SelectedItem(RootNavigationView().MenuItems().GetAt(FIRST_PROFILE_ITEM_IDX));
 }
 
 void RootPage::_UpdateNewProfileNameTextBox(bool fillWithTitle) {
