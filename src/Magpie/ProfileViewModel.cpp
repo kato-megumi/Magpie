@@ -213,14 +213,6 @@ void ProfileViewModel::Launch() noexcept {
 	} else {
 		LaunchWin32App(*_data);
 	}
-
-	// Reorder launched profile to first position if not default.
-	if (IsNotDefaultProfile() && _index != 0) {
-		ProfileService& ps = ProfileService::Get();
-		ps.MoveProfileToFirst(_index);
-		_index = 0;
-		_data = &ps.GetProfile(0);
-	}
 }
 
 void ProfileViewModel::RenameText(const hstring& value) {
