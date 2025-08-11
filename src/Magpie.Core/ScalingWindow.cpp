@@ -1288,7 +1288,7 @@ bool ScalingWindow::_UpdateSrcState(
 	}
 
 	// 在 3D 游戏模式下需检测前台窗口变化
-	if (_options.Is3DGameMode() && !_CheckForegroundFor3DGameMode(hwndFore)) {
+	if ((!_options.IsWindowedMode() || _options.Is3DGameMode()) && !_CheckForegroundFor3DGameMode(hwndFore)) {
 		return false;
 	}
 
