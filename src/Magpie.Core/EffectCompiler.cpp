@@ -714,6 +714,14 @@ static uint32_t ResolveTexture(std::string_view block, EffectDesc& desc) noexcep
 		// OUTPUT 已为第二个元素
 		desc.textures[1].sizeExpr = std::move(texDesc.sizeExpr);
 		desc.textures.pop_back();
+	} else if (token == desc.textures[2].name) {
+		// PREV_INPUT does not allow any options
+		if (processed.any()) {
+			return 1;
+		}
+
+		// PREV_INPUT is already the third element
+		desc.textures.pop_back();
 	} else {
 		texDesc.name = token;
 	}
@@ -985,9 +993,10 @@ static uint32_t ResolvePasses(SmallVector<std::string_view>& blocks, EffectDesc&
 							return 1;
 						}
 
-						// INPUT 和从文件读取的纹理不能作为输出。
+						// INPUT/OUTPUT/PREV_INPUT and file textures cannot be used as outputs.
+						// INPUT (0), OUTPUT (1), PREV_INPUT (2) cannot be used as pass outputs.
 						// 只有最后一个通道能输出到 OUTPUT，这是为了方便截图。
-						if (it->second == 0 || it->second == 1 || !desc.textures[it->second].source.empty()) {
+						if (it->second == 0 || it->second == 1 || it->second == 2 || !desc.textures[it->second].source.empty()) {
 							return 1;
 						}
 
@@ -1779,6 +1788,14 @@ uint32_t EffectCompiler::Compile(
 		auto& outputDesc = desc.textures.emplace_back();
 		outputDesc.name = "OUTPUT";
 		outputDesc.format = EffectIntermediateTextureFormat::R8G8B8A8_UNORM;
+	}
+	// Third element: PREV_INPUT (previous frame input)
+	{
+		auto& prevInputDesc = desc.textures.emplace_back();
+		prevInputDesc.name = "PREV_INPUT";
+		prevInputDesc.format = EffectIntermediateTextureFormat::R8G8B8A8_UNORM;
+		prevInputDesc.sizeExpr.first = "INPUT_WIDTH";
+		prevInputDesc.sizeExpr.second = "INPUT_HEIGHT";
 	}
 
 	for (size_t i = 0; i < textureBlocks.size(); ++i) {
