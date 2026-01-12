@@ -33,10 +33,12 @@ bool EffectDrawer::Initialize(
 	_descriptorStore = &descriptorStore;
 
 	SIZE inputSize{};
+	DXGI_FORMAT inputFormat{};
 	{
 		D3D11_TEXTURE2D_DESC inputDesc;
 		(*inOutTexture)->GetDesc(&inputDesc);
 		inputSize = { (LONG)inputDesc.Width, (LONG)inputDesc.Height };
+		inputFormat = inputDesc.Format;
 	}
 
 	const SIZE outputSize = _CalcOutputSize(desc, option, inputSize);
@@ -123,10 +125,10 @@ bool EffectDrawer::Initialize(
 
 			_textures[i] = DirectXHelper::CreateTexture2D(
 				deviceResources.GetD3DDevice(),
-				EffectHelper::FORMAT_DESCS[(UINT)texDesc.format].dxgiFormat,
+				i == 2 ? inputFormat : EffectHelper::FORMAT_DESCS[(UINT)texDesc.format].dxgiFormat,
 				texSize.cx,
 				texSize.cy,
-				D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS
+				i == 2 ? D3D11_BIND_SHADER_RESOURCE : (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS)
 			);
 			if (!_textures[i]) {
 				Logger::Get().Error("创建纹理失败");
@@ -141,6 +143,8 @@ bool EffectDrawer::Initialize(
 	_uavs.resize(passCount);
 	_dispatches.resize(passCount);
 
+	// Check if any pass uses PREV_INPUT (texture index 2)
+	_hasPrevInput = false;
 	for (uint32_t i = 0; i < passCount; ++i) {
 		const EffectPassDesc& passDesc = desc.passes[i];
 
@@ -153,6 +157,11 @@ bool EffectDrawer::Initialize(
 
 		_srvs[i].resize(passDesc.inputs.size());
 		_uavs[i].resize(passDesc.outputs.size() * 2);
+
+		// Check if this pass uses PREV_INPUT (texture index 2)
+		for (uint32_t input : passDesc.inputs) {
+			_hasPrevInput |= (input == 2);
+		}
 	}
 
 	if (!_UpdatePassResources(desc)) {
@@ -174,6 +183,13 @@ void EffectDrawer::Draw(EffectsProfiler& profiler) const noexcept {
 	for (uint32_t i = 0; i < _dispatches.size(); ++i) {
 		_DrawPass(i);
 		profiler.OnEndPass(_d3dDC);
+	}
+}
+
+void EffectDrawer::UpdatePrevInput() const noexcept {
+	// Copy INPUT (texture 0) to PREV_INPUT (texture 2) for next frame
+	if (_hasPrevInput && _textures.size() > 2 && _textures[2]) {
+		_d3dDC->CopyResource(_textures[2].get(), _textures[0].get());
 	}
 }
 

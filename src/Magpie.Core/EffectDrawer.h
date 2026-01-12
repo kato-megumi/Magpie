@@ -35,6 +35,9 @@ public:
 
 	void Draw(EffectsProfiler& profiler) const noexcept;
 
+	// Copy INPUT to PREV_INPUT for effects that need previous frame access
+	void UpdatePrevInput() const noexcept;
+
 	void DrawForExport(const EffectDesc& desc, uint32_t passIdx) const noexcept;
 
 	bool ResizeTextures(
@@ -92,6 +95,9 @@ private:
 	SmallVector<winrt::com_ptr<ID3D11ComputeShader>> _shaders;
 
 	SmallVector<std::pair<uint32_t, uint32_t>> _dispatches;
+
+	// True if any effect uses PREV_INPUT (texture index 2)
+	bool _hasPrevInput = false;
 
 	static inline mu::Parser _exprParser;
 };

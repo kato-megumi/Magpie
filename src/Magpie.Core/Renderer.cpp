@@ -979,6 +979,11 @@ void Renderer::_BackendRender(ID3D11Texture2D* effectsOutput) noexcept {
 		effectDrawer.Draw(_effectsProfiler);
 	}
 
+	// Update PREV_INPUT textures for effects that need previous frame access
+	for (const EffectDrawer& effectDrawer : _effectDrawers) {
+		effectDrawer.UpdatePrevInput();
+	}
+
 	_effectsProfiler.OnEndEffects(d3dDC);
 
 	HRESULT hr = d3dDC->Signal(_d3dFence.get(), ++_fenceValue);

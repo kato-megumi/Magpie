@@ -30,10 +30,11 @@ float sharpness;
 
 
 // Definition of textures
-// "INPUT" and "OUTPUT" are special keywords.
+// "INPUT", "OUTPUT", and "PREV_INPUT" are special keywords.
 // "INPUT" cannot be used as the output of a pass; "OUTPUT" cannot be used as the input of a pass.
+// "PREV_INPUT" contains the previous frame's INPUT texture, useful for temporal effects.
 // Only the last pass is allowed to write to OUTPUT, and it must write only to OUTPUT.
-// Defining INPUT/OUTPUT is optional, but it is recommended to define them explicitly for the
+// Defining INPUT/OUTPUT/PREV_INPUT is optional, but it is recommended to define them explicitly for the
 // sake of semantic completeness.
 // The size of the OUTPUT represents the output size of this effect. Not specifying it indicates
 // support for output of any size.
@@ -45,6 +46,11 @@ Texture2D INPUT;
 //!WIDTH INPUT_WIDTH * 2
 //!HEIGHT INPUT_HEIGHT * 2
 Texture2D OUTPUT;
+
+// PREV_INPUT provides access to the previous frame's input texture.
+// This is automatically updated after each frame.
+//!TEXTURE
+Texture2D PREV_INPUT;
 
 // You can use some pre-defined constants to calculate texture size.
 // INPUT_WIDTH
