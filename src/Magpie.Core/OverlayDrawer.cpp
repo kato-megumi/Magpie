@@ -768,6 +768,14 @@ bool OverlayDrawer::_DrawToolbar(uint32_t fps, int& itemId) noexcept {
 			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f * _dpiScale);
 			ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 6.0f * _dpiScale);
 
+			ImGui::PushID(itemId++);
+			if (ImGui::MenuItem(_GetResourceString(L"Overlay_Toolbar_TakeScreenshot_Original").c_str())) {
+				ScalingWindow::Get().Renderer().TakeScreenshot();
+			}
+			ImGui::PopID();
+
+			ImGui::Separator();
+
 			const std::vector<const EffectDesc*>& effectDescs =
 				ScalingWindow::Get().Renderer().ActiveEffectDescs();
 			const uint32_t effectCount = (uint32_t)effectDescs.size();

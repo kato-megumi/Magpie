@@ -156,7 +156,8 @@ static bool SavePng(
 	uint32_t width,
 	uint32_t height,
 	std::span<uint8_t> pixelData,
-	uint32_t rowPitch
+	uint32_t rowPitch,
+	bool isBGRA = false
 ) {
 	// 初始化 WIC
 	winrt::com_ptr<IWICImagingFactory2> wicFactory =
@@ -213,7 +214,7 @@ static bool SavePng(
 		return false;
 	}
 
-	const WICPixelFormatGUID& srcFormat = GUID_WICPixelFormat32bppRGBA;
+	const WICPixelFormatGUID& srcFormat = isBGRA ? GUID_WICPixelFormat32bppBGRA : GUID_WICPixelFormat32bppRGBA;
 	WICPixelFormatGUID destFormat = srcFormat;
 	hr = frameEncoder->SetPixelFormat(&destFormat);
 	if (FAILED(hr)) {
@@ -305,8 +306,10 @@ bool TextureHelper::SaveTexture(
 		return DDSHelper::Save(fileName, width, height, dxgiFormat, pixelData, rowPitch);
 	} else {
 		assert(std::wstring_view(fileName).ends_with(L".png"));
-		assert(format == EffectIntermediateTextureFormat::R8G8B8A8_UNORM);
-		return SavePng(fileName, width, height, pixelData, rowPitch);
+		assert(format == EffectIntermediateTextureFormat::R8G8B8A8_UNORM ||
+			format == EffectIntermediateTextureFormat::B8G8R8A8_UNORM);
+		const bool isBGRA = (format == EffectIntermediateTextureFormat::B8G8R8A8_UNORM);
+		return SavePng(fileName, width, height, pixelData, rowPitch, isBGRA);
 	}
 }
 

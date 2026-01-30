@@ -77,7 +77,7 @@ void serialize(Archive& ar, EffectDesc& o) {
 
 // 缓存版本
 // 当缓存文件结构有更改时更新它，使旧缓存失效
-static constexpr uint32_t EFFECT_CACHE_VERSION = 15;
+static constexpr uint32_t EFFECT_CACHE_VERSION = 16;
 
 static std::wstring GetLinearEffectName(std::wstring_view effectName) {
 	std::wstring result(effectName);

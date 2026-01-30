@@ -62,8 +62,9 @@ public:
 		return _overlayDrawer.IsCursorOnCaptionArea();
 	}
 
+	// effectIdx == UINT32_MAX means capture original frame before effects
 	winrt::fire_and_forget TakeScreenshot(
-		uint32_t effectIdx,
+		uint32_t effectIdx = std::numeric_limits<uint32_t>::max(),
 		uint32_t passIdx = std::numeric_limits<uint32_t>::max(),
 		uint32_t outputIdx = std::numeric_limits<uint32_t>::max()
 	) noexcept;
