@@ -940,6 +940,9 @@
   <data name="Overlay_Toolbar_TakeScreenshot_PopupTitle" xml:space="preserve">
     <value>Export intermediate result</value>
   </data>
+  <data name="Overlay_Toolbar_TakeScreenshot_Original" xml:space="preserve">
+    <value>Original</value>
+  </data>
   <data name="Profile_WindowedScaling.Header" xml:space="preserve">
     <value>Windowed scaling</value>
   </data>

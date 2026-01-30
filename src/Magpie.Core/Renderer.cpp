@@ -1106,7 +1106,22 @@ winrt::IAsyncOperation<bool> Renderer::_TakeScreenshotImpl(
 	// 效果输出保存为 png，中间结果保存为 dds
 	const wchar_t* imgFormat;
 
-	if (passIdx == std::numeric_limits<uint32_t>::max()) {
+	// effectIdx == UINT32_MAX means capture original frame
+	if (effectIdx == std::numeric_limits<uint32_t>::max()) {
+		sourceTex = _frameSource->GetOutput();
+		if (!sourceTex) {
+			Logger::Get().Error("Failed to get original frame");
+			co_return false;
+		}
+		{
+			D3D11_TEXTURE2D_DESC texDesc;
+			sourceTex->GetDesc(&texDesc);
+			format = (texDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM)
+				? EffectIntermediateTextureFormat::B8G8R8A8_UNORM
+				: EffectIntermediateTextureFormat::R8G8B8A8_UNORM;
+		}
+		imgFormat = L"png";
+	} else if (passIdx == std::numeric_limits<uint32_t>::max()) {
 		sourceTex = _effectDrawers[effectIdx].GetOutputTexture();
 		format = _activeEffectDescs[effectIdx]->textures[1].format;
 		imgFormat = L"png";
