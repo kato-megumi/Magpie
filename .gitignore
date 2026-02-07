@@ -430,3 +430,13 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# JetBrains Rider
+*.sln.iml
+
+scripts/*.txt
+scripts/*.ps1
+
+# Visual Studio Code
+.vscode/
+.github/agents/
