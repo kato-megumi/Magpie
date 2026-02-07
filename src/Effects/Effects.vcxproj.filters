@@ -391,6 +391,9 @@
     <CopyFileToFolders Include="CuNNy2\CuNNy-veryfast-NVL.hlsl">
       <Filter>CuNNy2</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="TemporalAA.hlsl">
+      <Filter>TAA</Filter>
+    </CopyFileToFolders>
     <CopyFileToFolders Include="SGSR.hlsl" />
     <CopyFileToFolders Include="k7_modernAnime_FHD_x2.hlsl" />
     <CopyFileToFolders Include="Ani4Kv2_ArtCNN_C4F32_i2.hlsl" />
