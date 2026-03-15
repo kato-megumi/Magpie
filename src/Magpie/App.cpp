@@ -22,6 +22,7 @@
 #include "AdaptersService.h"
 #include "CommonSharedConstants.h"
 #include "EffectsService.h"
+#include "IconCache.h"
 #include "LocalizationService.h"
 #include "Logger.h"
 #include "MainWindow.h"
@@ -154,10 +155,12 @@ bool App::Initialize(const wchar_t* arguments) {
 	ScalingService::Get().Initialize();
 	UpdateService::Get().Initialize();
 	ThemeHelper::Initialize();
+	IconCache::Initialize();
 
 	_themeChangedRevoker = AppSettings::Get().ThemeChanged(
 		auto_revoke, std::bind_front(&App::_AppSettings_ThemeChanged, this));
 	_AppSettings_ThemeChanged(AppSettings::Get().Theme());
+
 
 	NotifyIconService& notifyIconService = NotifyIconService::Get();
 	notifyIconService.Initialize();
