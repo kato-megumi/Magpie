@@ -8,6 +8,7 @@
 #include "AppSettings.h"
 #include "AppXReader.h"
 #include "FileDialogHelper.h"
+#include "IconCache.h"
 #include "IconHelper.h"
 #include "LocalizationService.h"
 #include "Logger.h"
@@ -18,7 +19,6 @@
 #include "ScalingService.h"
 #include "StrHelper.h"
 #include "Win32Helper.h"
-
 using namespace ::Magpie;
 using namespace winrt;
 using namespace Windows::Graphics::Display;
@@ -849,7 +849,7 @@ fire_and_forget ProfileViewModel::_LoadIcon() {
 				iconBitmap = std::get<1>(uwpIcon);
 			}
 		} else {
-			iconBitmap = IconHelper::ExtractIconFromExe(path.c_str(), iconSize);
+			iconBitmap = IconCache::ExtractIconFromExe(path.c_str(), iconSize);
 		}
 
 		co_await App::Get().Dispatcher();

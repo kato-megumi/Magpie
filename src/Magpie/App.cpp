@@ -23,6 +23,7 @@
 #include "CommonSharedConstants.h"
 #include "ControlSizeTrigger.h"
 #include "EffectsService.h"
+#include "IconCache.h"
 #include "IsEqualStateTrigger.h"
 #include "IsNullStateTrigger.h"
 #include "LocalizationService.h"
@@ -165,6 +166,7 @@ bool App::Initialize(const wchar_t* arguments) {
 	ScalingService::Get().Initialize();
 	UpdateService::Get().Initialize();
 	ThemeHelper::Initialize();
+	IconCache::Initialize();
 
 	// 延迟注册 DependencyProperty，见 FixThreadPoolCrash
 	SettingsCard::RegisterDependencyProperties();
@@ -178,6 +180,7 @@ bool App::Initialize(const wchar_t* arguments) {
 	_themeChangedRevoker = AppSettings::Get().ThemeChanged(
 		auto_revoke, std::bind_front(&App::_AppSettings_ThemeChanged, this));
 	_AppSettings_ThemeChanged(AppSettings::Get().Theme());
+
 
 	NotifyIconService& notifyIconService = NotifyIconService::Get();
 	notifyIconService.Initialize();

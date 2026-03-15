@@ -3,12 +3,14 @@
 #if __has_include("RootPage.g.cpp")
 #include "RootPage.g.cpp"
 #endif
+
 #include "App.h"
 #include "AppXReader.h"
 #include "CandidateWindowItem.h"
 #include "CommonSharedConstants.h"
 #include "ContentDialogHelper.h"
 #include "ControlHelper.h"
+#include "IconCache.h"
 #include "IconHelper.h"
 #include "LocalizationService.h"
 #include "MainWindow.h"
@@ -406,7 +408,7 @@ fire_and_forget RootPage::_LoadIcon(MUXC::NavigationViewItem const& item, const 
 			}
 		}
 	} else {
-		iconBitmap = IconHelper::ExtractIconFromExe(path.c_str(), iconSize);
+		iconBitmap = IconCache::ExtractIconFromExe(path.c_str(), iconSize);
 	}
 
 	co_await App::Get().Dispatcher();
