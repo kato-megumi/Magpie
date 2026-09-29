@@ -79,6 +79,14 @@ private:
 	// 1. 避免重复检查同一个窗口
 	// 2. 用户使用热键退出全屏后暂时阻止该窗口自动放大
 	HWND _hwndChecked = NULL;
+
+	struct _TempDefaultScaleTarget {
+		HWND hWnd = NULL;
+		DWORD processId = 0;
+		bool windowedMode = false;
+	};
+
+	_TempDefaultScaleTarget _tempDefaultTarget;
 };
 
 }

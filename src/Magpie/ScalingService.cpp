@@ -54,6 +54,8 @@ void ScalingService::Uninitialize() noexcept {
 	_scalingRuntime.reset();
 
 	_shortcutActivatedRevoker.Revoke();
+
+	_tempDefaultTarget = {};
 }
 
 void ScalingService::StartTimer(bool windowedMode) {
@@ -106,6 +108,9 @@ void ScalingService::_ShortcutService_ShortcutPressed(ShortcutAction action) {
 		const bool isWindowdMode = action == ShortcutAction::WindowedModeScale;
 
 		if (_scalingRuntime->State() == ScalingState::Scaling) {
+			if (_tempDefaultTarget.hWnd && _tempDefaultTarget.hWnd == _hwndCurSrc) {
+				_tempDefaultTarget.windowedMode = isWindowdMode;
+			}
 			_scalingRuntime->ToggleScaling(isWindowdMode);
 		} else {
 			_ScaleForegroundWindow(isWindowdMode);
@@ -262,6 +267,21 @@ void ScalingService::_CheckForegroundTimer_Tick(winrt::DispatcherQueueTimer cons
 
 			// 自动缩放可以终止当前缩放
 			_StartScale(hwndFore, *profile, profile->autoScale == AutoScale::Windowed, true);
+		} else if (!profile && _tempDefaultTarget.hWnd && !(_hwndCurSrc && IsPopupWindow(hwndFore, _hwndCurSrc))) {
+			DWORD pid = 0;
+			GetWindowThreadProcessId(hwndFore, &pid);
+			if (hwndFore == _tempDefaultTarget.hWnd && pid == _tempDefaultTarget.processId) {
+				const Profile* nonAutoProfile = ProfileService::Get().GetProfileForWindow(hwndFore, false);
+				if (nonAutoProfile == &AppSettings::Get().DefaultProfile()) {
+					if (!IsReadyForScaling(hwndFore)) {
+						return;
+					}
+
+					_StartScale(hwndFore, *nonAutoProfile, _tempDefaultTarget.windowedMode, true);
+				} else {
+					_tempDefaultTarget = {};
+				}
+			}
 		}
 	}
 
@@ -279,6 +299,7 @@ void ScalingService::_ScalingRuntime_StateChanged(ScalingState value) {
 			// 的触发频率较低，容易错过时机。
 			if (GetForegroundWindow() == _hwndCurSrc) {
 				_hwndChecked = _hwndCurSrc;
+				_tempDefaultTarget = {};
 			}
 
 			// 缩放结束后清空 _hwndCurSrc，等待状态下则保留
@@ -493,6 +514,18 @@ ScalingError ScalingService::_StartScaleImpl(HWND hWnd, const Profile& profile, 
 	}
 
 	_hwndCurSrc = hWnd;
+
+	if (&profile == &AppSettings::Get().DefaultProfile()) {
+		DWORD pid = 0;
+		GetWindowThreadProcessId(hWnd, &pid);
+		_tempDefaultTarget = {
+			.hWnd = hWnd,
+			.processId = pid,
+			.windowedMode = windowedMode
+		};
+	} else {
+		_tempDefaultTarget = {};
+	}
 
 	// Reorder profile: find and move the profile to first if not already.
 	{
