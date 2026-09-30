@@ -10,6 +10,7 @@
 #include <shellapi.h>
 #pragma pop_macro("ShellExecute")
 #include <ShlObj.h>
+#include <string.h>
 #include <wil/token_helpers.h>
 
 namespace Magpie {
@@ -69,21 +70,88 @@ wil::unique_process_handle Win32Helper::GetWindowProcessHandle(HWND hWnd) noexce
 	return result;
 }
 
+// Converts an NT path (\Device\...) to a Win32 path. Returns an empty string on failure
+static std::wstring NtPathToWin32Path(const std::wstring& ntPath) noexcept {
+	auto startsWithNoCase = [](std::wstring_view str, std::wstring_view prefix) {
+		return str.size() >= prefix.size()
+			&& _wcsnicmp(str.data(), prefix.data(), prefix.size()) == 0;
+	};
+
+	// Map volume devices to drive letters (local volumes, mapped network drives, subst drives)
+	for (wchar_t drive = L'A'; drive <= L'Z'; ++drive) {
+		const wchar_t driveName[] = { drive, L':', L'\0' };
+		wchar_t deviceName[MAX_PATH];
+		if (!QueryDosDeviceW(driveName, deviceName, MAX_PATH)) {
+			continue;
+		}
+
+		const size_t deviceNameLen = wcslen(deviceName);
+		// Must match the full device name, e.g. \Device\HarddiskVolume3 should not match \Device\HarddiskVolume30
+		if (deviceNameLen < ntPath.size()
+			&& ntPath[deviceNameLen] == L'\\'
+			&& startsWithNoCase(ntPath, std::wstring_view(deviceName, deviceNameLen))) {
+			std::wstring result = driveName;
+			result += ntPath.substr(deviceNameLen);
+			return result;
+		}
+	}
+
+	// Network paths, e.g. \Device\Mup\server\share\...
+	for (std::wstring_view prefix : { std::wstring_view(L"\\Device\\Mup\\"), std::wstring_view(L"\\Device\\LanmanRedirector\\") }) {
+		if (startsWithNoCase(ntPath, prefix)) {
+			std::wstring result(2, L'\\');
+			result += ntPath.substr(prefix.size());
+			return result;
+		}
+	}
+
+	return {};
+}
+
+
 std::wstring Win32Helper::GetWindowExePath(HWND hWnd) noexcept {
 	wil::unique_process_handle hProc = GetWindowProcessHandle(hWnd);
 	if (!hProc) {
-		Logger::Get().Error("GetWindowProcessHandle 失败");
+		Logger::Get().Error("GetWindowProcessHandle failed");
 		return {};
 	}
 
 	std::wstring fileName;
 	HRESULT hr = wil::QueryFullProcessImageNameW(hProc.get(), 0, fileName);
-	if (FAILED(hr)) {
-		Logger::Get().ComError("QueryFullProcessImageNameW 失败", hr);
+	if (SUCCEEDED(hr)) {
+		return fileName;
+	}
+
+	// QueryFullProcessImageNameW may fail (ERROR_UNEXP_NET_ERR) for processes on network
+	// shares. Fall back to GetProcessImageFileNameW and convert the NT device path.
+	static const auto getProcessImageFileName = LoadFunction<DWORD WINAPI(HANDLE, LPWSTR, DWORD)>(
+		L"Psapi.dll", "GetProcessImageFileNameW");
+	if (!getProcessImageFileName) {
 		return {};
 	}
 
-	return fileName;
+	std::wstring ntPath;
+	for (UINT size = 1024; size <= 32768; size *= 2) {
+		ntPath.assign(size, L'\0');
+		UINT len = getProcessImageFileName(hProc.get(), ntPath.data(), size);
+		if (len == 0) {
+			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+				continue;
+			}
+			Logger::Get().Error("GetProcessImageFileNameW failed");
+			return {};
+		}
+
+		if (len < size) {
+			ntPath.resize(len);
+			return NtPathToWin32Path(ntPath);
+		}
+
+		// Buffer may be too small, retry
+	}
+
+	Logger::Get().Error("GetProcessImageFileNameW failed");
+	return {};
 }
 
 std::wstring Win32Helper::GetWindowExeName(HWND hWnd) noexcept {
